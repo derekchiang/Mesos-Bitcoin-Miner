@@ -43,14 +43,17 @@ var (
 )
 
 type MinerScheduler struct {
-	// state
+	userpass string // bitcoind RPC username and password, space separated
+
+	// mutable state
 	minerServerRunning  bool
 	minerServerHostname string
 	minerServerPort     int // the port that miner daemons connect to
 }
 
-func newMinerScheduler() *MinerScheduler {
+func newMinerScheduler(userpass string) *MinerScheduler {
 	return &MinerScheduler{
+		userpass:           userpass,
 		minerServerRunning: false,
 	}
 }
@@ -172,6 +175,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 						"--bitcoind-address", *bitcoindAddr,
 						"--p2pool-port", strconv.Itoa(int(p2pool_port)),
 						"-w", strconv.Itoa(int(worker_port)),
+						s.userpass,
 					},
 				},
 				Resources: []*mesos.Resource{
@@ -193,6 +197,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 
 func (s *MinerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
+	// If the mining server failed, kill all daemons, since they will be trying to talk to the failed mining server
 	if strings.Contains(status.GetTaskId().GetValue(), "server") {
 		s.minerServerRunning = false
 
@@ -219,8 +224,24 @@ func (s *MinerScheduler) ExecutorLost(sched.SchedulerDriver, *mesos.ExecutorID, 
 func (sched *MinerScheduler) Error(driver sched.SchedulerDriver, err string) {
 }
 
+func printUsage() {
+	println("Usage: miner_scheduler [RPC_USERNAME] [RPC_PASSSWORD] [--FLAGS]")
+	println("Your RPC username and password can be found in your bitcoin.conf file.")
+	println("To see a detailed description of the flags available, type `miner_scheduler --help`")
+}
+
 func main() {
 	flag.Parse()
+
+	var userpass string
+	if flag.NArg() == 1 {
+		userpass = flag.Arg(0)
+	} else if flag.NArg() == 2 {
+		userpass = flag.Arg(0) + " " + flag.Arg(1)
+	} else {
+		printUsage()
+		return
+	}
 
 	fwinfo := &mesos.FrameworkInfo{
 		User: proto.String(""),
@@ -240,7 +261,7 @@ func main() {
 		}
 	}
 	config := sched.DriverConfig{
-		Scheduler:  newMinerScheduler(),
+		Scheduler:  newMinerScheduler(userpass),
 		Framework:  fwinfo,
 		Master:     *master,
 		Credential: cred,
