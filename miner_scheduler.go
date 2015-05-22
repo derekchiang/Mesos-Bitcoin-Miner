@@ -20,6 +20,11 @@ import (
 )
 
 const (
+	MINER_SERVER_DOCKER_IMAGE = "derekchiang/p2pool"
+	MINER_DAEMON_DOCKER_IMAGE = "derekchiang/cpuminer"
+)
+
+const (
 	MEM_PER_DAEMON_TASK = 128 // mining shouldn't be memory-intensive
 	MEM_PER_SERVER_TASK = 256 // I'm just guessing
 	CPU_PER_SERVER_TASK = 1   // a miner server does not use much CPU
@@ -107,7 +112,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: proto.String("creack/cpuminer"),
+						Image: proto.String(MINER_DAEMON_DOCKER_IMAGE),
 					},
 				},
 				Command: &mesos.CommandInfo{
@@ -156,7 +161,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: proto.String("derekchiang/miner-server"),
+						Image: proto.String(MINER_SERVER_DOCKER_IMAGE),
 					},
 				},
 				Command: &mesos.CommandInfo{
