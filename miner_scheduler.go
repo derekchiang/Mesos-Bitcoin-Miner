@@ -196,7 +196,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				},
 				Command: &mesos.CommandInfo{
 					Shell:     proto.Bool(false),
-					Arguments: []string{"-o", s.minerServerHostname},
+					Arguments: []string{"-o", s.minerServerHostname + ":" + strconv.Itoa(s.minerServerPort)},
 				},
 				Resources: []*mesos.Resource{
 					util.NewScalarResource("cpus", cpus),
