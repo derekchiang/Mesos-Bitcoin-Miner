@@ -116,6 +116,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 					},
 				},
 				Command: &mesos.CommandInfo{
+					Shell:     proto.Bool(false),
 					Arguments: []string{"-o", s.minerServerHostname},
 				},
 				Resources: []*mesos.Resource{
@@ -165,6 +166,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 					},
 				},
 				Command: &mesos.CommandInfo{
+					Shell: proto.Bool(false),
 					Arguments: []string{
 						// these arguments will be passed to run_p2pool.py
 						"--bitcoind-address", *bitcoindAddr,
