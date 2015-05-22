@@ -103,35 +103,11 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 		}
 
 		// If a miner server is running, we start a new miner daemon.  Otherwise, we start a new miner server.
-		var taskId *mesos.TaskID
-		var task *mesos.TaskInfo
-		if s.minerServerRunning && mems >= MEM_PER_DAEMON_TASK {
-			taskId = &mesos.TaskID{
-				Value: proto.String("miner-daemon-" + strconv.Itoa(i)),
-			}
+		tasks := make([]*mesos.TaskInfo, 0)
+		if !s.minerServerRunning && mems >= MEM_PER_SERVER_TASK && cpus >= CPU_PER_SERVER_TASK && ports >= 2 {
+			var taskId *mesos.TaskID
+			var task *mesos.TaskInfo
 
-			containerType := mesos.ContainerInfo_DOCKER
-			task = &mesos.TaskInfo{
-				Name:    proto.String("task-" + taskId.GetValue()),
-				TaskId:  taskId,
-				SlaveId: offer.SlaveId,
-				Container: &mesos.ContainerInfo{
-					Type: &containerType,
-					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: proto.String(MINER_DAEMON_DOCKER_IMAGE),
-					},
-				},
-				Command: &mesos.CommandInfo{
-					Shell:     proto.Bool(false),
-					Arguments: []string{"-o", s.minerServerHostname},
-				},
-				Resources: []*mesos.Resource{
-					util.NewScalarResource("cpus", cpus),
-					util.NewScalarResource("mem", MEM_PER_DAEMON_TASK),
-				},
-			}
-			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
-		} else if !s.minerServerRunning && mems >= MEM_PER_SERVER_TASK && cpus >= CPU_PER_SERVER_TASK && ports >= 2 {
 			// we need two ports
 			var p2pool_port uint64
 			var worker_port uint64
@@ -188,13 +164,51 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 			}
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
+			cpus -= CPU_PER_SERVER_TASK
+			mems -= MEM_PER_SERVER_TASK
+
 			// update state
 			s.minerServerHostname = offer.GetHostname()
 			s.minerServerRunning = true
 			s.minerServerPort = int(worker_port)
+
+			tasks = append(tasks, task)
 		}
 
-		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, []*mesos.TaskInfo{task}, &mesos.Filters{RefuseSeconds: proto.Float64(1)})
+		if s.minerServerRunning && mems >= MEM_PER_DAEMON_TASK {
+			var taskId *mesos.TaskID
+			var task *mesos.TaskInfo
+
+			taskId = &mesos.TaskID{
+				Value: proto.String("miner-daemon-" + strconv.Itoa(i)),
+			}
+
+			containerType := mesos.ContainerInfo_DOCKER
+			task = &mesos.TaskInfo{
+				Name:    proto.String("task-" + taskId.GetValue()),
+				TaskId:  taskId,
+				SlaveId: offer.SlaveId,
+				Container: &mesos.ContainerInfo{
+					Type: &containerType,
+					Docker: &mesos.ContainerInfo_DockerInfo{
+						Image: proto.String(MINER_DAEMON_DOCKER_IMAGE),
+					},
+				},
+				Command: &mesos.CommandInfo{
+					Shell:     proto.Bool(false),
+					Arguments: []string{"-o", s.minerServerHostname},
+				},
+				Resources: []*mesos.Resource{
+					util.NewScalarResource("cpus", cpus),
+					util.NewScalarResource("mem", MEM_PER_DAEMON_TASK),
+				},
+			}
+			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
+
+			tasks = append(tasks, task)
+		}
+
+		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, tasks, &mesos.Filters{RefuseSeconds: proto.Float64(1)})
 	}
 }
 
