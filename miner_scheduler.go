@@ -43,7 +43,9 @@ var (
 )
 
 type MinerScheduler struct {
-	userpass string // bitcoind RPC username and password, space separated
+	// bitcoind RPC credentials
+	rpc_user string
+	rpc_pass string
 
 	// mutable state
 	minerServerRunning  bool
@@ -51,9 +53,10 @@ type MinerScheduler struct {
 	minerServerPort     int // the port that miner daemons connect to
 }
 
-func newMinerScheduler(userpass string) *MinerScheduler {
+func newMinerScheduler(user, pass string) *MinerScheduler {
 	return &MinerScheduler{
-		userpass:           userpass,
+		rpc_user:           user,
+		rpc_pass:           pass,
 		minerServerRunning: false,
 	}
 }
@@ -175,7 +178,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 						"--bitcoind-address", *bitcoindAddr,
 						"--p2pool-port", strconv.Itoa(int(p2pool_port)),
 						"-w", strconv.Itoa(int(worker_port)),
-						s.userpass,
+						s.rpc_user, s.rpc_pass,
 					},
 				},
 				Resources: []*mesos.Resource{
@@ -233,11 +236,13 @@ func printUsage() {
 func main() {
 	flag.Parse()
 
-	var userpass string
+	var user, pass string
 	if flag.NArg() == 1 {
-		userpass = flag.Arg(0)
+		user = ""
+		pass = flag.Arg(0)
 	} else if flag.NArg() == 2 {
-		userpass = flag.Arg(0) + " " + flag.Arg(1)
+		user = flag.Arg(0)
+		pass = flag.Arg(1)
 	} else {
 		printUsage()
 		return
@@ -261,7 +266,7 @@ func main() {
 		}
 	}
 	config := sched.DriverConfig{
-		Scheduler:  newMinerScheduler(userpass),
+		Scheduler:  newMinerScheduler(user, pass),
 		Framework:  fwinfo,
 		Master:     *master,
 		Credential: cred,
