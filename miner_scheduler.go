@@ -242,7 +242,7 @@ func (sched *MinerScheduler) Error(driver sched.SchedulerDriver, err string) {
 }
 
 func printUsage() {
-	println("Usage: miner_scheduler [RPC_USERNAME] [RPC_PASSSWORD] [--FLAGS]")
+	println("Usage: miner_scheduler [--FLAGS] [RPC_USERNAME] [RPC_PASSSWORD]")
 	println("Your RPC username and password can be found in your bitcoin.conf file.")
 	println("To see a detailed description of the flags available, type `miner_scheduler --help`")
 }
@@ -259,6 +259,7 @@ func main() {
 		pass = flag.Arg(1)
 	} else {
 		printUsage()
+		println(flag.NArg())
 		return
 	}
 
