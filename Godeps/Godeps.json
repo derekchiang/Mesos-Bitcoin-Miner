@@ -1,0 +1,70 @@
+{
+	"ImportPath": "github.com/derekchiang/Mesos-Bitcoin-Miner",
+	"GoVersion": "go1.4.2",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/go-uuid/uuid",
+			"Comment": "null-12",
+			"Rev": "7dda39b2e7d5e265014674c5af696ba4186679e9"
+		},
+		{
+			"ImportPath": "github.com/gogo/protobuf/proto",
+			"Rev": "ab6cea4a44ef42b748cd88d2d372047b75806e0c"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "d1c4472bf2efd3826f2b5bdcc02d8416798d678c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/auth",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/detector",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/mesosproto",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/mesosutil",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/messenger",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/scheduler",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/mesos/mesos-go/upid",
+			"Rev": "6440c09c9d8a1b365f3c3e9b2297dd856abd017c"
+		},
+		{
+			"ImportPath": "github.com/samuel/go-zookeeper/zk",
+			"Rev": "d0e0d8e11f318e000a8cc434616d69e329edc374"
+		},
+		{
+			"ImportPath": "github.com/stretchr/objx",
+			"Rev": "cbeaeb16a013161a98496fad62933b1d21786672"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Rev": "da775f0337260efbac0fce9764cee5bd3e8c85b8"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/mock",
+			"Rev": "da775f0337260efbac0fce9764cee5bd3e8c85b8"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "1dfe7915deaf3f80b962c163b918868d8a6d8974"
+		}
+	]
+}
