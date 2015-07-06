@@ -51,17 +51,18 @@ type MinerScheduler struct {
 	minerServerRunning  bool
 	minerServerHostname string
 	minerServerPort     int // the port that miner daemons connect to
-
 	//unique task ids
-	tasksLaunched int
+	tasksLaunched        int
+	currentDaemonTaskIDs []*mesos.TaskID
 }
 
 func newMinerScheduler(user, pass string) *MinerScheduler {
 	return &MinerScheduler{
-		rpc_user:           user,
-		rpc_pass:           pass,
-		minerServerRunning: false,
-		tasksLaunched:      0,
+		rpc_user:             user,
+		rpc_pass:             pass,
+		minerServerRunning:   false,
+		tasksLaunched:        0,
+		currentDaemonTaskIDs: make([]*mesos.TaskID, 0),
 	}
 }
 
@@ -211,6 +212,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
 			tasks = append(tasks, task)
+			s.currentDaemonTaskIDs = append(s.currentDaemonTaskIDs, taskId)
 		}
 
 		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, tasks, &mesos.Filters{RefuseSeconds: proto.Float64(1)})
@@ -220,26 +222,21 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 func (s *MinerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
 	// If the mining server failed for any reason, kill all daemons, since they will be trying to talk to the failed mining server
-	if strings.Contains(status.GetTaskId().GetValue(), "server") 	&&
-	  (status.GetState() == mesos.TaskState_TASK_LOST  						||
-		status.GetState() == mesos.TaskState_TASK_KILLED  					||
-		status.GetState() == mesos.TaskState_TASK_FINISHED					||
-		status.GetState() == mesos.TaskState_TASK_ERROR   					||
-		status.GetState() == mesos.TaskState_TASK_FAILED) {
+	if strings.Contains(status.GetTaskId().GetValue(), "server") &&
+		(status.GetState() == mesos.TaskState_TASK_LOST ||
+			status.GetState() == mesos.TaskState_TASK_KILLED ||
+			status.GetState() == mesos.TaskState_TASK_FINISHED ||
+			status.GetState() == mesos.TaskState_TASK_ERROR ||
+			status.GetState() == mesos.TaskState_TASK_FAILED) {
 
 		s.minerServerRunning = false
 
 		// kill all tasks
-		statuses := make([]*mesos.TaskStatus, 0)
-		_, err := driver.ReconcileTasks(statuses)
-		if err != nil {
-			panic(err)
-		}
-
-		for _, status := range statuses {
-			driver.KillTask(status.TaskId)
+		for _, taskId := range s.currentDaemonTaskIDs {
+			driver.KillTask(taskId)
 		}
 	}
+	s.currentDaemonTaskIDs = make([]*mesos.TaskID, 0)
 }
 
 func (s *MinerScheduler) OfferRescinded(sched.SchedulerDriver, *mesos.OfferID) {}
