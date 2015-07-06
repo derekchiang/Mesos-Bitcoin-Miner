@@ -51,6 +51,9 @@ type MinerScheduler struct {
 	minerServerRunning  bool
 	minerServerHostname string
 	minerServerPort     int // the port that miner daemons connect to
+
+	//unique task ids
+	tasksLaunched int
 }
 
 func newMinerScheduler(user, pass string) *MinerScheduler {
@@ -58,6 +61,7 @@ func newMinerScheduler(user, pass string) *MinerScheduler {
 		rpc_user:           user,
 		rpc_pass:           pass,
 		minerServerRunning: false,
+		tasksLaunched:      0,
 	}
 }
 
@@ -74,7 +78,7 @@ func (s *MinerScheduler) Disconnected(sched.SchedulerDriver) {
 }
 
 func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
-	for i, offer := range offers {
+	for _, offer := range offers {
 		memResources := util.FilterResources(offer.Resources, func(res *mesos.Resource) bool {
 			return res.GetName() == "mem"
 		})
@@ -131,9 +135,9 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 					break
 				}
 			}
-
+			s.tasksLaunched += 1
 			taskId = &mesos.TaskID{
-				Value: proto.String("miner-server-" + strconv.Itoa(i)),
+				Value: proto.String("miner-server-" + strconv.Itoa(s.tasksLaunched)),
 			}
 
 			containerType := mesos.ContainerInfo_DOCKER
@@ -179,8 +183,9 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 			var taskId *mesos.TaskID
 			var task *mesos.TaskInfo
 
+			s.tasksLaunched += 1
 			taskId = &mesos.TaskID{
-				Value: proto.String("miner-daemon-" + strconv.Itoa(i)),
+				Value: proto.String("miner-daemon-" + strconv.Itoa(s.tasksLaunched)),
 			}
 
 			containerType := mesos.ContainerInfo_DOCKER
