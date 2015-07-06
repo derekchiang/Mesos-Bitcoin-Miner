@@ -219,8 +219,14 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 
 func (s *MinerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
-	// If the mining server failed, kill all daemons, since they will be trying to talk to the failed mining server
-	if strings.Contains(status.GetTaskId().GetValue(), "server") {
+	// If the mining server failed for any reason, kill all daemons, since they will be trying to talk to the failed mining server
+	if strings.Contains(status.GetTaskId().GetValue(), "server") 	&&
+	  (status.GetState() == mesos.TaskState_TASK_LOST  						||
+		status.GetState() == mesos.TaskState_TASK_KILLED  					||
+		status.GetState() == mesos.TaskState_TASK_FINISHED					||
+		status.GetState() == mesos.TaskState_TASK_ERROR   					||
+		status.GetState() == mesos.TaskState_TASK_FAILED) {
+
 		s.minerServerRunning = false
 
 		// kill all tasks
