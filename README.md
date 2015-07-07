@@ -20,7 +20,8 @@ Now you should have a binary called `scheduler` inside the directory.
     Also, since this framework makes use of docker images, you will need to start mesos slaves with the docker containerizer.  This can be done by setting the environment variable `MESOS_CONTAINERIZERS` to `docker`.
 
 ## Demo
-    http://recordit.co/4KOIUuLuqu
+
+http://recordit.co/4KOIUuLuqu
 
 ## Disclaimer
 
