@@ -17,7 +17,10 @@ Now you should have a binary called `scheduler` inside the directory.
 
     Note that you can usually find your bitcoin RPC username and password in your `bitcoin.conf` file.  You might also need to set `rpcallowip` to the IP range of your mesos cluster so they can access your bitcoind.
 
-    There is a demo here: http://recordit.co/4KOIUuLuqu
+    Also, since this framework makes use of docker images, you will need to start mesos slaves with the docker containerizer.  This can be done by setting the environment variable `MESOS_CONTAINERIZERS` to `docker`.
+
+## Demo
+    http://recordit.co/4KOIUuLuqu
 
 ## Disclaimer
 
