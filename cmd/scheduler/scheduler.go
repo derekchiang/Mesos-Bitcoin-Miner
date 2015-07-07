@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gogo/protobuf/proto"
-	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
 	"github.com/mesos/mesos-go/auth"
@@ -233,10 +233,13 @@ func (s *MinerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *meso
 
 		// kill all tasks
 		for _, taskId := range s.currentDaemonTaskIDs {
-			driver.KillTask(taskId)
+			_, err := driver.KillTask(taskId)
+			if err != nil {
+				log.Errorf("Failed to kill task %s", taskId)
+			}
 		}
+		s.currentDaemonTaskIDs = make([]*mesos.TaskID, 0)
 	}
-	s.currentDaemonTaskIDs = make([]*mesos.TaskID, 0)
 }
 
 func (s *MinerScheduler) OfferRescinded(sched.SchedulerDriver, *mesos.OfferID) {}

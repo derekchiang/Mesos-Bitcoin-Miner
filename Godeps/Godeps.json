@@ -11,6 +11,11 @@
 			"Rev": "7dda39b2e7d5e265014674c5af696ba4186679e9"
 		},
 		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.2-12-g2a0a9a1",
+			"Rev": "2a0a9a12ae2892ccfa9ab59c1222e9dcd29f9367"
+		},
+		{
 			"ImportPath": "github.com/gogo/protobuf/proto",
 			"Rev": "ab6cea4a44ef42b748cd88d2d372047b75806e0c"
 		},
