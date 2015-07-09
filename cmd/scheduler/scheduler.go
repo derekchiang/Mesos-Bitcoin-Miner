@@ -20,14 +20,14 @@ import (
 )
 
 const (
-	MINER_SERVER_DOCKER_IMAGE = "derekchiang/p2pool"
-	MINER_DAEMON_DOCKER_IMAGE = "derekchiang/cpuminer"
+	MinerServerDockerImage = "derekchiang/p2pool"
+	MinerDaemonDockerImage = "derekchiang/cpuminer"
 )
 
 const (
-	MEM_PER_DAEMON_TASK = 128 // mining shouldn't be memory-intensive
-	MEM_PER_SERVER_TASK = 256 // I'm just guessing
-	CPU_PER_SERVER_TASK = 1   // a miner server does not use much CPU
+	MemPerDaemonTask = 128 // mining shouldn't be memory-intensive
+	MemPerServerTask = 256 // I'm just guessing
+	CPUPerServerTask = 1   // a miner server does not use much CPU
 )
 
 // flags
@@ -44,8 +44,8 @@ var (
 
 type MinerScheduler struct {
 	// bitcoind RPC credentials
-	rpc_user string
-	rpc_pass string
+	rpcUser string
+	rpcPass string
 
 	// mutable state
 	minerServerRunning  bool
@@ -58,8 +58,8 @@ type MinerScheduler struct {
 
 func newMinerScheduler(user, pass string) *MinerScheduler {
 	return &MinerScheduler{
-		rpc_user:             user,
-		rpc_pass:             pass,
+		rpcUser:              user,
+		rpcPass:              pass,
 		minerServerRunning:   false,
 		tasksLaunched:        0,
 		currentDaemonTaskIDs: make([]*mesos.TaskID, 0),
@@ -109,7 +109,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 
 		// If a miner server is running, we start a new miner daemon.  Otherwise, we start a new miner server.
 		tasks := make([]*mesos.TaskInfo, 0)
-		if !s.minerServerRunning && mems >= MEM_PER_SERVER_TASK && cpus >= CPU_PER_SERVER_TASK && ports >= 2 {
+		if !s.minerServerRunning && mems >= MemPerServerTask && cpus >= CPUPerServerTask && ports >= 2 {
 			var taskId *mesos.TaskID
 			var task *mesos.TaskInfo
 
@@ -149,7 +149,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: proto.String(MINER_SERVER_DOCKER_IMAGE),
+						Image: proto.String(MinerServerDockerImage),
 					},
 				},
 				Command: &mesos.CommandInfo{
@@ -159,18 +159,18 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 						"--bitcoind-address", *bitcoindAddr,
 						"--p2pool-port", strconv.Itoa(int(p2pool_port)),
 						"-w", strconv.Itoa(int(worker_port)),
-						s.rpc_user, s.rpc_pass,
+						s.rpcUser, s.rpcPass,
 					},
 				},
 				Resources: []*mesos.Resource{
-					util.NewScalarResource("cpus", CPU_PER_SERVER_TASK),
-					util.NewScalarResource("mem", MEM_PER_SERVER_TASK),
+					util.NewScalarResource("cpus", CPUPerServerTask),
+					util.NewScalarResource("mem", MemPerServerTask),
 				},
 			}
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
-			cpus -= CPU_PER_SERVER_TASK
-			mems -= MEM_PER_SERVER_TASK
+			cpus -= CPUPerServerTask
+			mems -= MemPerServerTask
 
 			// update state
 			s.minerServerHostname = offer.GetHostname()
@@ -180,7 +180,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 			tasks = append(tasks, task)
 		}
 
-		if s.minerServerRunning && mems >= MEM_PER_DAEMON_TASK {
+		if s.minerServerRunning && mems >= MemPerDaemonTask {
 			var taskId *mesos.TaskID
 			var task *mesos.TaskInfo
 
@@ -197,7 +197,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
 					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: proto.String(MINER_DAEMON_DOCKER_IMAGE),
+						Image: proto.String(MinerDaemonDockerImage),
 					},
 				},
 				Command: &mesos.CommandInfo{
@@ -206,7 +206,7 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				},
 				Resources: []*mesos.Resource{
 					util.NewScalarResource("cpus", cpus),
-					util.NewScalarResource("mem", MEM_PER_DAEMON_TASK),
+					util.NewScalarResource("mem", MemPerDaemonTask),
 				},
 			}
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
@@ -253,9 +253,9 @@ func (sched *MinerScheduler) Error(driver sched.SchedulerDriver, err string) {
 }
 
 func printUsage() {
-	println("Usage: scheduler [--FLAGS] [RPC_USERNAME] [RPC_PASSSWORD]")
+	println("Usage: scheduler [--FLAGS] [RPC username] [RPC password]")
 	println("Your RPC username and password can be found in your bitcoin.conf file.")
-	println("To see a detailed description of the flags available, type `miner_scheduler --help`")
+	println("To see a detailed description of the flags available, type `scheduler --help`")
 }
 
 func main() {
