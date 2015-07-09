@@ -72,3 +72,9 @@ With the rise of GPUs and ASICs, mining Bitcoin using raw CPUs has been unprofit
 ## License
 
 [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+
+## Other example mesos frameworks
+
+* [Rendler](https://github.com/mesosphere/RENDLER)
+* [ANAGRAMMER](https://github.com/mesosphere/ANAGRAMMER)
+* [closest-pair](https://github.com/chenlily/closest-pair)
