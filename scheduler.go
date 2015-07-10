@@ -32,24 +32,13 @@ const (
 	CPUPerServerTask = 1   // a miner server does not use much CPU
 )
 
-// flags
-var (
-	master       = flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
-	bitcoindAddr = flag.String("bitcoindAddress", "127.0.0.1", "Address where bitcoind runs")
-
-	// auth
-	authProvider = flag.String("mesos_authentication_provider", sasl.ProviderName,
-		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v", mech.ListSupported()))
-	mesosAuthPrincipal  = flag.String("mesos_authentication_principal", "", "Mesos authentication principal.")
-	mesosAuthSecretFile = flag.String("mesos_authentication_secret_file", "", "Mesos authentication secret file.")
-)
-
 // minerScheduler implements the Scheduler interface and stores the state
 // needed to scheduler tasks.
 type minerScheduler struct {
 	// bitcoind RPC credentials
-	rpcUser string
-	rpcPass string
+	bitcoindAddr string
+	rpcUser      string
+	rpcPass      string
 
 	// mutable state
 	minerServerRunning  bool
@@ -60,21 +49,20 @@ type minerScheduler struct {
 	currentDaemonTaskIDs []*mesos.TaskID
 }
 
-func newMinerScheduler(user, pass string) *minerScheduler {
+func newMinerScheduler(bitcoindAddr, user, pass string) *minerScheduler {
 	return &minerScheduler{
+		bitcoindAddr:         bitcoindAddr,
 		rpcUser:              user,
 		rpcPass:              pass,
-		minerServerRunning:   false,
-		tasksLaunched:        0,
-		currentDaemonTaskIDs: make([]*mesos.TaskID, 0),
+		currentDaemonTaskIDs: []*mesos.TaskID{},
 	}
 }
 
-func (s *minerScheduler) Registered(driver sched.SchedulerDriver, frameworkID *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
+func (s *minerScheduler) Registered(_ sched.SchedulerDriver, frameworkID *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework registered with Master ", masterInfo)
 }
 
-func (s *minerScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
+func (s *minerScheduler) Reregistered(_ sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework Re-Registered with Master ", masterInfo)
 }
 
@@ -160,7 +148,7 @@ func (s *minerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 					Shell: proto.Bool(false),
 					Arguments: []string{
 						// these arguments will be passed to run_p2pool.py
-						"--bitcoind-address", *bitcoindAddr,
+						"--bitcoind-address", s.bitcoindAddr,
 						"--p2pool-port", strconv.Itoa(int(p2poolPort)),
 						"-w", strconv.Itoa(int(workerPort)),
 						s.rpcUser, s.rpcPass,
@@ -246,35 +234,63 @@ func (s *minerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *meso
 	}
 }
 
-func (s *minerScheduler) OfferRescinded(sched.SchedulerDriver, *mesos.OfferID) {}
-func (s *minerScheduler) FrameworkMessage(sched.SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, string) {
+func (s *minerScheduler) OfferRescinded(_ sched.SchedulerDriver, offerID *mesos.OfferID) {
+	log.Printf("Offer rescinded: %s", offerID)
 }
-func (s *minerScheduler) SlaveLost(sched.SchedulerDriver, *mesos.SlaveID) {}
-func (s *minerScheduler) ExecutorLost(sched.SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, int) {
+
+func (s *minerScheduler) FrameworkMessage(_ sched.SchedulerDriver, executorID *mesos.ExecutorID, slaveID *mesos.SlaveID, message string) {
+	log.Printf("Received framework message from %s %s: %s", executorID, slaveID, message)
+}
+
+func (s *minerScheduler) SlaveLost(_ sched.SchedulerDriver, slaveID *mesos.SlaveID) {
+	log.Printf("Slave lost: %s", slaveID)
+}
+
+func (s *minerScheduler) ExecutorLost(_ sched.SchedulerDriver, executorID *mesos.ExecutorID, slaveID *mesos.SlaveID, _ int) {
+	log.Printf("Executor lost: %s %s", executorID, slaveID)
 }
 
 func (s *minerScheduler) Error(driver sched.SchedulerDriver, err string) {
+	log.Printf("Error: %s", err)
 }
 
 func printUsage() {
-	println("Usage: scheduler [--FLAGS] [RPC username] [RPC password]")
-	println("Your RPC username and password can be found in your bitcoin.conf file.")
-	println("To see a detailed description of the flags available, type `scheduler --help`")
+	fmt.Println(`
+Usage: scheduler [--FLAGS] [RPC username] [RPC password]
+Your RPC username and password can be found in your bitcoin.conf file.
+To see a detailed description of the flags available, type "scheduler --help"
+`)
 }
 
 func main() {
+
+	// flags
+	master := flag.String("master", "127.0.0.1:5050", "Master address <ip:port>")
+	bitcoindAddr := flag.String("bitcoind_address", "127.0.0.1", "Address where bitcoind runs")
+
+	// auth
+	authProvider := flag.String(
+		"mesos_authentication_provider",
+		sasl.ProviderName,
+		fmt.Sprintf("Authentication provider to use, default is SASL that supports mechanisms: %+v",
+			mech.ListSupported()),
+	)
+	mesosAuthPrincipal := flag.String("mesos_authentication_principal", "", "Mesos authentication principal.")
+	mesosAuthSecretFile := flag.String("mesos_authentication_secret_file", "", "Mesos authentication secret file.")
+
 	flag.Parse()
 
+	// arguments
 	var user, pass string
-	if flag.NArg() == 1 {
+	switch flag.NArg() {
+	case 1:
 		user = ""
 		pass = flag.Arg(0)
-	} else if flag.NArg() == 2 {
+	case 2:
 		user = flag.Arg(0)
 		pass = flag.Arg(1)
-	} else {
+	default:
 		printUsage()
-		println(flag.NArg())
 		return
 	}
 
@@ -283,7 +299,7 @@ func main() {
 		Name: proto.String("BTC Mining Framework (Go)"),
 	}
 
-	cred := (*mesos.Credential)(nil)
+	var cred *mesos.Credential
 	if *mesosAuthPrincipal != "" {
 		fwinfo.Principal = proto.String(*mesosAuthPrincipal)
 		secret, err := ioutil.ReadFile(*mesosAuthSecretFile)
@@ -296,23 +312,21 @@ func main() {
 		}
 	}
 	config := sched.DriverConfig{
-		Scheduler:  newMinerScheduler(user, pass),
+		Scheduler:  newMinerScheduler(*bitcoindAddr, user, pass),
 		Framework:  fwinfo,
 		Master:     *master,
 		Credential: cred,
 		WithAuthContext: func(ctx context.Context) context.Context {
-			ctx = auth.WithLoginProvider(ctx, *authProvider)
-			return ctx
+			return auth.WithLoginProvider(ctx, *authProvider)
 		},
 	}
 
 	driver, err := sched.NewMesosSchedulerDriver(config)
-
 	if err != nil {
 		log.Errorln("Unable to create a SchedulerDriver ", err.Error())
 	}
 
 	if stat, err := driver.Run(); err != nil {
-		log.Infof("Framework stopped with status %s and error: %s\n", stat.String(), err.Error())
+		log.Infof("Framework stopped with status %s and error: %s", stat.String(), err.Error())
 	}
 }

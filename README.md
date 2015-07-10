@@ -53,11 +53,11 @@ Now you should have a binary called `scheduler` inside the directory.
 
 ## Usage
 
-    ./scheduler -master="<address of mesos master>" -bitcoindAddress="<address of your bitcoin daemon>" <your bitcoin RPC username> <your bitcoin RPC password>
+    ./scheduler -master="<address of mesos master>" -bitcoind_address="<address of your bitcoin daemon>" <your bitcoin RPC username> <your bitcoin RPC password>
 
 For example, in my local setup, I run:
 
-    ./scheduler -master="172.31.1.11:5050" -bitcoindAddress="172.31.2.1" bitcoinrpc BEBSruNHg14Tmz4D6X8qCjA22RCuoniDxovRCvPvGqS1
+    ./scheduler -master="172.31.1.11:5050" -bitcoind_address="172.31.2.1" bitcoinrpc BEBSruNHg14Tmz4D6X8qCjA22RCuoniDxovRCvPvGqS1
 
 Note that the `bitcoindAddress` is the IP address of your `bitcoind` **from the perspective of the Mesos cluster**.
 
