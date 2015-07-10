@@ -47,7 +47,7 @@ In the end, you should obtain the IP address and port where the Mesos master is 
 You need to have [Go](http://golang.org/) installed.  Then in this directory:
 
     go get github.com/tools/godep # only if you don't have godep installed already
-    godep go build ./...
+    godep go build scheduler.go
 
 Now you should have a binary called `scheduler` inside the directory.
 
