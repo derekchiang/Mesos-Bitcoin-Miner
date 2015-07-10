@@ -19,11 +19,13 @@ import (
 	sched "github.com/mesos/mesos-go/scheduler"
 )
 
+// The docker images that we launch
 const (
 	MinerServerDockerImage = "derekchiang/p2pool"
 	MinerDaemonDockerImage = "derekchiang/cpuminer"
 )
 
+// Resource usage of the tasks
 const (
 	MemPerDaemonTask = 128 // mining shouldn't be memory-intensive
 	MemPerServerTask = 256 // I'm just guessing
@@ -42,7 +44,9 @@ var (
 	mesosAuthSecretFile = flag.String("mesos_authentication_secret_file", "", "Mesos authentication secret file.")
 )
 
-type MinerScheduler struct {
+// minerScheduler implements the Scheduler interface and stores the state
+// needed to scheduler tasks.
+type minerScheduler struct {
 	// bitcoind RPC credentials
 	rpcUser string
 	rpcPass string
@@ -56,8 +60,8 @@ type MinerScheduler struct {
 	currentDaemonTaskIDs []*mesos.TaskID
 }
 
-func newMinerScheduler(user, pass string) *MinerScheduler {
-	return &MinerScheduler{
+func newMinerScheduler(user, pass string) *minerScheduler {
+	return &minerScheduler{
 		rpcUser:              user,
 		rpcPass:              pass,
 		minerServerRunning:   false,
@@ -66,19 +70,19 @@ func newMinerScheduler(user, pass string) *MinerScheduler {
 	}
 }
 
-func (s *MinerScheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
+func (s *minerScheduler) Registered(driver sched.SchedulerDriver, frameworkID *mesos.FrameworkID, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework registered with Master ", masterInfo)
 }
 
-func (s *MinerScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
+func (s *minerScheduler) Reregistered(driver sched.SchedulerDriver, masterInfo *mesos.MasterInfo) {
 	log.Infoln("Framework Re-Registered with Master ", masterInfo)
 }
 
-func (s *MinerScheduler) Disconnected(sched.SchedulerDriver) {
+func (s *minerScheduler) Disconnected(sched.SchedulerDriver) {
 	log.Infoln("Framework disconnected with Master")
 }
 
-func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
+func (s *minerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 	for _, offer := range offers {
 		memResources := util.FilterResources(offer.Resources, func(res *mesos.Resource) bool {
 			return res.GetName() == "mem"
@@ -101,21 +105,21 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 		})
 		var ports uint64
 		for _, res := range portsResources {
-			port_ranges := res.GetRanges().GetRange()
-			for _, port_range := range port_ranges {
-				ports += port_range.GetEnd() - port_range.GetBegin()
+			portRanges := res.GetRanges().GetRange()
+			for _, portRange := range portRanges {
+				ports += portRange.GetEnd() - portRange.GetBegin()
 			}
 		}
 
 		// If a miner server is running, we start a new miner daemon.  Otherwise, we start a new miner server.
-		tasks := make([]*mesos.TaskInfo, 0)
+		var tasks []*mesos.TaskInfo
 		if !s.minerServerRunning && mems >= MemPerServerTask && cpus >= CPUPerServerTask && ports >= 2 {
-			var taskId *mesos.TaskID
+			var taskID *mesos.TaskID
 			var task *mesos.TaskInfo
 
 			// we need two ports
-			var p2pool_port uint64
-			var worker_port uint64
+			var p2poolPort uint64
+			var workerPort uint64
 			// A rather stupid algorithm for picking two ports
 			// The difficulty here is that a range might only include one port,
 			// in which case we will need to pick another port from another range.
@@ -123,28 +127,28 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 				r := res.GetRanges().GetRange()[0]
 				begin := r.GetBegin()
 				end := r.GetEnd()
-				if p2pool_port == 0 {
-					p2pool_port = begin
-					if worker_port == 0 && (begin+1) <= end {
-						worker_port = begin + 1
+				if p2poolPort == 0 {
+					p2poolPort = begin
+					if workerPort == 0 && (begin+1) <= end {
+						workerPort = begin + 1
 						break
 					}
 					continue
 				}
-				if worker_port == 0 {
-					worker_port = begin
+				if workerPort == 0 {
+					workerPort = begin
 					break
 				}
 			}
-			s.tasksLaunched += 1
-			taskId = &mesos.TaskID{
+			s.tasksLaunched++
+			taskID = &mesos.TaskID{
 				Value: proto.String("miner-server-" + strconv.Itoa(s.tasksLaunched)),
 			}
 
 			containerType := mesos.ContainerInfo_DOCKER
 			task = &mesos.TaskInfo{
-				Name:    proto.String("task-" + taskId.GetValue()),
-				TaskId:  taskId,
+				Name:    proto.String("task-" + taskID.GetValue()),
+				TaskId:  taskID,
 				SlaveId: offer.SlaveId,
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
@@ -157,8 +161,8 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 					Arguments: []string{
 						// these arguments will be passed to run_p2pool.py
 						"--bitcoind-address", *bitcoindAddr,
-						"--p2pool-port", strconv.Itoa(int(p2pool_port)),
-						"-w", strconv.Itoa(int(worker_port)),
+						"--p2pool-port", strconv.Itoa(int(p2poolPort)),
+						"-w", strconv.Itoa(int(workerPort)),
 						s.rpcUser, s.rpcPass,
 					},
 				},
@@ -175,24 +179,24 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 			// update state
 			s.minerServerHostname = offer.GetHostname()
 			s.minerServerRunning = true
-			s.minerServerPort = int(worker_port)
+			s.minerServerPort = int(workerPort)
 
 			tasks = append(tasks, task)
 		}
 
 		if s.minerServerRunning && mems >= MemPerDaemonTask {
-			var taskId *mesos.TaskID
+			var taskID *mesos.TaskID
 			var task *mesos.TaskInfo
 
-			s.tasksLaunched += 1
-			taskId = &mesos.TaskID{
+			s.tasksLaunched++
+			taskID = &mesos.TaskID{
 				Value: proto.String("miner-daemon-" + strconv.Itoa(s.tasksLaunched)),
 			}
 
 			containerType := mesos.ContainerInfo_DOCKER
 			task = &mesos.TaskInfo{
-				Name:    proto.String("task-" + taskId.GetValue()),
-				TaskId:  taskId,
+				Name:    proto.String("task-" + taskID.GetValue()),
+				TaskId:  taskID,
 				SlaveId: offer.SlaveId,
 				Container: &mesos.ContainerInfo{
 					Type: &containerType,
@@ -212,14 +216,14 @@ func (s *MinerScheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*
 			log.Infof("Prepared task: %s with offer %s for launch\n", task.GetName(), offer.Id.GetValue())
 
 			tasks = append(tasks, task)
-			s.currentDaemonTaskIDs = append(s.currentDaemonTaskIDs, taskId)
+			s.currentDaemonTaskIDs = append(s.currentDaemonTaskIDs, taskID)
 		}
 
 		driver.LaunchTasks([]*mesos.OfferID{offer.Id}, tasks, &mesos.Filters{RefuseSeconds: proto.Float64(1)})
 	}
 }
 
-func (s *MinerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
+func (s *minerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	log.Infoln("Status update: task", status.TaskId.GetValue(), " is in state ", status.State.Enum().String())
 	// If the mining server failed for any reason, kill all daemons, since they will be trying to talk to the failed mining server
 	if strings.Contains(status.GetTaskId().GetValue(), "server") &&
@@ -232,24 +236,24 @@ func (s *MinerScheduler) StatusUpdate(driver sched.SchedulerDriver, status *meso
 		s.minerServerRunning = false
 
 		// kill all tasks
-		for _, taskId := range s.currentDaemonTaskIDs {
-			_, err := driver.KillTask(taskId)
+		for _, taskID := range s.currentDaemonTaskIDs {
+			_, err := driver.KillTask(taskID)
 			if err != nil {
-				log.Errorf("Failed to kill task %s", taskId)
+				log.Errorf("Failed to kill task %s", taskID)
 			}
 		}
 		s.currentDaemonTaskIDs = make([]*mesos.TaskID, 0)
 	}
 }
 
-func (s *MinerScheduler) OfferRescinded(sched.SchedulerDriver, *mesos.OfferID) {}
-func (s *MinerScheduler) FrameworkMessage(sched.SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, string) {
+func (s *minerScheduler) OfferRescinded(sched.SchedulerDriver, *mesos.OfferID) {}
+func (s *minerScheduler) FrameworkMessage(sched.SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, string) {
 }
-func (s *MinerScheduler) SlaveLost(sched.SchedulerDriver, *mesos.SlaveID) {}
-func (s *MinerScheduler) ExecutorLost(sched.SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, int) {
+func (s *minerScheduler) SlaveLost(sched.SchedulerDriver, *mesos.SlaveID) {}
+func (s *minerScheduler) ExecutorLost(sched.SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, int) {
 }
 
-func (sched *MinerScheduler) Error(driver sched.SchedulerDriver, err string) {
+func (s *minerScheduler) Error(driver sched.SchedulerDriver, err string) {
 }
 
 func printUsage() {
