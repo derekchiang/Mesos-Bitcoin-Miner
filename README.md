@@ -2,6 +2,8 @@
 
 A Mesos framework that mines Bitcoin.
 
+[An article was written about it.](https://dzone.com/articles/creating-a-distributed-system-in-300-lines-with-me)
+
 ## Setup
 
 To run this framework, you need to have a Bitcoin daemon (`bitcoind`) and a Mesos cluster running.
