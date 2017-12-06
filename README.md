@@ -69,7 +69,7 @@ http://recordit.co/4KOIUuLuqu
 
 ## Disclaimer
 
-With the rise of GPUs and ASICs, mining Bitcoin using raw CPUs has been unprofitable for the past few years.  Therefore, this project is probably only useful for time travellers from 2011 or before.  Although now that I think about it, Mesos doesn't even exist before 2011, so even time travellers won't be able to use it.  Sorry guys.
+With the rise of GPUs and ASICs, mining Bitcoin using raw CPUs has been unprofitable for the past few years.  Therefore, this project is probably only useful for time travellers from 2011 or before.  Although now that I think about it, Mesos didn't even exist before 2011, so even time travellers wouldn't be able to use it.  Sorry guys.
 
 ## License
 
